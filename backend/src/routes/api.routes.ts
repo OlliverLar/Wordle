@@ -4,30 +4,31 @@ import randomWord from '../utils/getword'
 import feedback from '../utils/feedback';
 import { Router } from 'express';
 import { Game } from '../types';
+import { HighscoreModel } from '../utils/db';
 
 const router = Router();
 
-const games: Game[] = [];
+const WordleGame: Game[] = [];
 
-router.post("/api/game", async (req, res) =>{
-    const { wordLength, allowRepeatedLetters } = req.body;
+router.post('/api/games', async (req, res) =>{
+    const { allowRepeatedLetters, wordLength } = req.body;
 
-    const words = await fs.readFile("./src/words.txt")
-    const listOfWords = words.toString().split('\r\n');
+    const wordData = await fs.readFile('./src/words.txt')
+    const listOfWords = wordData.toString().split('\r\n');
 
-    const correctWord = randomWord(wordLength, allowRepeatedLetters, listOfWords);
+    const correctWord = randomWord(allowRepeatedLetters, wordLength, listOfWords);
 
     const game: Game = {
-        id : uuidv4().toString(),
+        id: uuidv4().toString(),
         allowRepeatedLetters,
         wordLength,
-        guesses: [],
-        start : new Date,
-        finnish : null,
+        SubmitedGuesses: [],
+        start: new Date,
+        finnish: null,
         correctWord,
     }
 
-    games.push(game);
+    WordleGame.push(game);
     console.log(game)
 
     res.status(200).json({
@@ -38,11 +39,62 @@ router.post("/api/game", async (req, res) =>{
         }
     })
 })
+router.post('/api/games/:id/guesses', (req, res) => {
+    const { guess } = req.body;
+    const { id } = req.params;
 
-router.post('/api/games/:id/guesses',(req, res) =>{
-    
+    const game = WordleGame.find(game => game.id == id)
+    if (!game) {
+        return res.status(404).end();
+    }
+
+    game.SubmitedGuesses.push(guess)
+
+    const letters  = feedback(guess, game.correctWord)
+    const correct = letters.every(letterResult => letterResult.result == 'correct')
+
+    if (correct) {
+        game.finnish = new Date;
+    }
+    res.status(200).json({
+        data: {
+            correct,
+            letters
+        }
+    })
 })
 
+router.post('/api/games/:id/highscore', async (req, res) => {
+    try {
+      const { name } = req.body;
+      const { id } = req.params;
+  
+      const game = WordleGame.find(game => game.id == id);
+      if (!game) {
+        return res.status(404).end();
+      }
+  
+      if (!game.finnish) {
+        return res.status(409).end();
+      }
+  
+      const entry = {
+        ...game,
+        name,
+      };
+  
+      const savedEntry = await HighscoreModel.create(entry);
+  
+      res.status(201).json({
+        data: savedEntry.toJSON(),
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({
+        error: 'Internal Server Error',
+      });
+    }
+  });
 
 export default router;
 

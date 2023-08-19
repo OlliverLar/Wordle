@@ -14,15 +14,14 @@ export default function feedback(guess: string, correctWord: string): FeedbackRe
 
   for (let i = 0; i < guess.length; i++) {
     const letter = guess[i];
-    const index = remainingLetters.indexOf(letter);
 
-    if (index >= 0) {
-      if (index === i) {
+    if (remainingLetters.includes(letter)) {
+      if (letter === correctWord[i]) {
         result.push({ letter, result: 'correct' });
       } else {
         result.push({ letter, result: 'misplaced' });
       }
-      remainingLetters.splice(index, 1);
+      remainingLetters.splice(remainingLetters.indexOf(letter), 1);
     } else {
       result.push({ letter, result: 'incorrect' });
     }
